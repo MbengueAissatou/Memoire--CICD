@@ -21,48 +21,41 @@ jobs:
         with:
           python-version: 3.11
 
-      # 3️⃣ Mettre à jour pip
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      # 4️⃣ Installer les dépendances
+      # 3️⃣ Installer les dépendances
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-django
 
-      # 5️⃣ Appliquer les migrations Django
+      # 4️⃣ Appliquer les migrations Django
       - name: Apply migrations
         run: |
           python manage.py makemigrations
           python manage.py migrate
 
-      # 6️⃣ Créer dossiers pour les rapports
+      # 5️⃣ Créer les dossiers pour les rapports
       - name: Prepare report directories
         run: mkdir -p report/unit report/integration
 
-      # 7️⃣ Lancer les tests unitaires
-      - name: Run unit tests
+      # 6️⃣ Lancer les tests unitaires
+      - name: Run Unit Tests
         run: |
-          python -m unittest discover rsa_app/tests -p "test_unit*.py" -v > report/unit/python-unit.txt || echo "No unit tests found"
-          # Convertir en JUnit XML
-          pip install junit-xml
-          python -m junit_xml_converter report/unit/python-unit.txt report/unit/python-unit.xml
-        shell: bash
+          pytest rsa_app/tests -m unit --junitxml=report/unit/python-unit.xml || echo "No unit tests found"
 
-      # 8️⃣ Lancer les tests d’intégration
-      - name: Run integration tests
+      # 7️⃣ Lancer les tests d’intégration
+      - name: Run Integration Tests
         run: |
-          python -m unittest discover rsa_app/tests -p "test_integration*.py" -v > report/integration/python-integration.txt || echo "No integration tests found"
-          pip install junit-xml
-          python -m junit_xml_converter report/integration/python-integration.txt report/integration/python-integration.xml
-        shell: bash
+          pytest rsa_app/tests -m integration --junitxml=report/integration/python-integration.xml || echo "No integration tests found"
 
-      # 9️⃣ Publier les rapports JUnit
+      # 8️⃣ Publier les rapports unitaires
       - name: Upload Unit Test Results
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
           path: report/unit/python-unit.xml
 
+      # 9️⃣ Publier les rapports d’intégration
       - name: Upload Integration Test Results
         uses: actions/upload-artifact@v4
         with:
