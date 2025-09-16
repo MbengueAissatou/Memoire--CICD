@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Génération des clés RSA | Plateforme Cryptographique</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-secondary {
+            background: #7f8c8d;
+        }
+        .btn-secondary:hover {
+            background: #95a5a6;
+        }
+        #cles {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+        .key-value {
+            font-family: 'Courier New', Courier, monospace;
+            word-break: break-all;
+            margin: 8px 0;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .nav-links {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Génération des clés RSA</h1>
+            <p>Créez des paires de clés cryptographiques sécurisées</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Générateur de clés RSA</h2>
+            <p>Cliquez sur le bouton ci-dessous pour générer une nouvelle paire de clés RSA. Ces clés seront utilisées pour le chiffrement et le déchiffrement des messages.</p>
+
+            <button onclick="genererCles()" class="btn">Générer les clés</button>
+
+            <div id="cles" style="display: none;">
+                <h3>Clés générées :</h3>
+                <div id="keys-container"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Instructions</h2>
+            <ol>
+                <li>Générez une paire de clés en cliquant sur le bouton ci-dessus</li>
+                <li>La clé publique (n, e) peut être partagée pour chiffrer des messages</li>
+                <li>La clé privée (d) doit être gardée secrète pour déchiffrer</li>
+                <li>Utilisez ces clés dans la section de chiffrement/déchiffrement</li>
+            </ol>
+
+            <div class="nav-links">
+                <a href="/crypt/" class="btn btn-secondary">Aller au chiffrement</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Plateforme Cryptographique RSA &copy; 2023 | Sécurité des données</p>
+        </div>
+    </footer>
+
+    <script>
+        async function genererCles() {
+            const btn = document.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Génération en cours...';
+
+            try {
+                const response = await fetch('/generate-keys/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const keys = data.keys;
+                    document.getElementById('cles').style.display = 'block';
+                    document.getElementById('keys-container').innerHTML = `
+                        <p><strong>Clé publique (n):</strong></p>
+                        <div class="key-value">${keys.n}</div>
+                        <p><strong>Clé publique (e):</strong></p>
+                        <div class="key-value">${keys.e}</div>
+                        <p><strong>Clé privée (d):</strong></p>
+                        <div class="key-value">${keys.d}</div>
+                    `;
+                } else {
+                    alert('Erreur lors de la génération des clés: ' + (data.message || 'Erreur inconnue'));
+                }
+            } catch (error) {
+                alert('Erreur de connexion au serveur');
+                console.error('Error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Générer les clés';
+            }
+        }
+    </script>
+</body>
+</html>
