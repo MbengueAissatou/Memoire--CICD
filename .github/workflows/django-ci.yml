@@ -1,63 +1,94 @@
-name: Django CI
+name: Django CI + SonarQube with ngrok
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Cloner le dépôt
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2️⃣ Installer Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      # 3️⃣ Installer les dépendances
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-django
+          pip install pytest pytest-django pyngrok
 
-      # 4️⃣ Appliquer les migrations Django
       - name: Apply migrations
         run: |
           python manage.py makemigrations
           python manage.py migrate
 
-      # 5️⃣ Créer les dossiers pour les rapports
       - name: Prepare report directories
         run: mkdir -p report/unit report/integration
 
-      # 6️⃣ Lancer les tests unitaires
       - name: Run Unit Tests
         run: |
           pytest rsa_app/tests -m unit --junitxml=report/unit/python-unit.xml || echo "No unit tests found"
 
-      # 7️⃣ Lancer les tests d’intégration
       - name: Run Integration Tests
         run: |
           pytest rsa_app/tests -m integration --junitxml=report/integration/python-integration.xml || echo "No integration tests found"
 
-      # 8️⃣ Publier les rapports unitaires
       - name: Upload Unit Test Results
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
           path: report/unit/python-unit.xml
 
-      # 9️⃣ Publier les rapports d’intégration
       - name: Upload Integration Test Results
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-results
           path: report/integration/python-integration.xml
+
+  sonar:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install ngrok
+        run: |
+          pip install pyngrok
+
+      - name: Start SonarQube and ngrok
+        run: |
+          # Démarre SonarQube en arrière-plan
+          nohup ./sonarqube/bin/linux-x86-64/sonar.sh start &
+          sleep 20
+
+          # Démarre ngrok pour exposer le port 9000
+          NGROK_URL=$(python -c "from pyngrok import ngrok; print(ngrok.connect(9000, 'http'))")
+          echo "SONAR_HOST_URL=$NGROK_URL" >> $GITHUB_ENV
+
+      - name: Run SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=rsa_project
+            -Dsonar.projectName=rsa_project
+            -Dsonar.python.version=3.11
+            -Dsonar.sources=.
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
