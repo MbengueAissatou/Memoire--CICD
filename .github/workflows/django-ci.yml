@@ -1,4 +1,4 @@
-name: Django CI + SonarQube with ngrok
+name: Django CI + SonarQube + OWASP Dependency-Check
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           python manage.py migrate
 
       - name: Prepare report directories
-        run: mkdir -p report/unit report/integration
+        run: mkdir -p report/unit report/integration report/dependency
 
       - name: Run Unit Tests
         run: |
@@ -53,9 +53,37 @@ jobs:
           name: integration-test-results
           path: report/integration/python-integration.xml
 
-  sonar:
+  dependency-check:
     runs-on: ubuntu-latest
     needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OWASP Dependency-Check
+        run: |
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v8.4.1/dependency-check-8.4.1-release.zip
+          unzip dependency-check-8.4.1-release.zip
+          mv dependency-check-8.4.1 dependency-check
+
+      - name: Run Dependency-Check
+        run: |
+          ./dependency-check/bin/dependency-check.sh --project "rsa_project" \
+          --scan . \
+          --format "HTML" \
+          --out report/dependency \
+          --enableExperimental
+
+      - name: Upload Dependency Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: report/dependency
+
+  sonar:
+    runs-on: ubuntu-latest
+    needs: [test, dependency-check]
 
     steps:
       - name: Checkout repository
@@ -68,8 +96,7 @@ jobs:
           java-version: 17
 
       - name: Install ngrok
-        run: |
-          pip install pyngrok
+        run: pip install pyngrok
 
       - name: Download and extract SonarQube
         run: |
@@ -81,14 +108,9 @@ jobs:
         env:
           NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
-          # Démarre SonarQube en arrière-plan
           nohup ./sonarqube/bin/linux-x86-64/sonar.sh start &
           sleep 20
-
-          # Configure ngrok authtoken
           python -c "from pyngrok import conf; conf.get_default().auth_token = '${NGROK_AUTHTOKEN}'"
-
-          # Démarre ngrok pour exposer le port 9000
           NGROK_URL=$(python -c "from pyngrok import ngrok; print(ngrok.connect(9000, 'http'))")
           echo "SONAR_HOST_URL=$NGROK_URL" >> $GITHUB_ENV
 
