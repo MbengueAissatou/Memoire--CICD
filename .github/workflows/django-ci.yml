@@ -3,48 +3,49 @@ name: SonarQube Scan
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   sonar:
+    name: Analyse SonarQube
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: temurin
-        java-version: 17
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    - name: Download ngrok
-      run: |
-        wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
-        unzip ngrok-stable-linux-amd64.zip
-        chmod +x ngrok
+      - name: Install ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install ngrok -y
 
-    - name: Start SonarQube (Docker)
-      run: |
-        docker run -d --name sonarqube -p 9000:9000 sonarqube:community
-        sleep 60  # attendre que SonarQube démarre
+      - name: Start ngrok
+        run: |
+          ngrok http 9000 --authtoken ${{ secrets.NGROK_AUTHTOKEN }} --log=stdout &
+          sleep 5
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
 
-    - name: Start ngrok to expose SonarQube
-      run: |
-        ./ngrok http 9000 --log=stdout > ngrok.log &
-        sleep 10
-        export SONAR_HOST_URL=$(grep -o 'https://[a-z0-9.-]*.ngrok.io' ngrok.log | head -n1)
-        echo "SONAR_HOST_URL=$SONAR_HOST_URL" >> $GITHUB_ENV
-
-    - name: Run SonarScanner
-      uses: SonarSource/sonarqube-scan-action@v2
-      with:
-        args: >
-          -Dsonar.projectKey=rsa_project
-          -Dsonar.projectName=rsa_project
-          -Dsonar.sources=.
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+      - name: Run SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=rsa_project
+            -Dsonar.projectName=rsa_project
+            -Dsonar.sources=.
+            -Dsonar.python.version=3.11
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
+          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.16-8/x64
