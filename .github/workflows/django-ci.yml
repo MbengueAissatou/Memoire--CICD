@@ -81,15 +81,25 @@ jobs:
         env:
           NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
-          # Démarre SonarQube
+          # Démarrage de SonarQube
           nohup ./sonarqube/bin/linux-x86-64/sonar.sh start &
-          sleep 30
 
-          # Configure ngrok authtoken
+          echo "⏳ Attente du démarrage de SonarQube..."
+          for i in {1..30}; do
+            if curl -s http://localhost:9000 > /dev/null; then
+              echo "✅ SonarQube est prêt !"
+              break
+            fi
+            echo "En attente ($i/30)..."
+            sleep 10
+          done
+
+          # Configuration de ngrok
           python -c "from pyngrok import conf; conf.get_default().auth_token = '${NGROK_AUTHTOKEN}'"
 
-          # Démarre ngrok pour exposer le port 9000
-          NGROK_URL=$(python -c "from pyngrok import ngrok; print(ngrok.connect(9000, 'http'))")
+          # Démarrage de ngrok et récupération de l'URL
+          NGROK_URL=$(python -c "from pyngrok import ngrok; print(ngrok.connect(9000, 'http').public_url)")
+          echo "🌍 SonarQube accessible via : $NGROK_URL"
           echo "SONAR_HOST_URL=$NGROK_URL" >> $GITHUB_ENV
 
       - name: Run SonarQube Scan
