@@ -26,7 +26,7 @@ def decrypt_page(request):
     keys = load_keys()
     return render(request, 'decrypt.html', {'keys': keys})
 
-def public_key_api(request):
+def public_key_api():
     keys = load_keys()
     return JsonResponse({'n': keys['n'], 'e': keys['e']})
 
@@ -38,15 +38,15 @@ def decrypt_api(request):
         try:
             decrypted_bytes = decrypted.to_bytes((decrypted.bit_length() + 7) // 8, 'big')
             message = decrypted_bytes.decode()
-        except:
+        except Exception:
             message = str(decrypted)
         return JsonResponse({'message': message})
 
-def public_key_api(request):
+def public_key_api():
     keys = load_keys()
     return JsonResponse({'n': keys['n'], 'e': keys['e']})
 
-def private_key_api(request):
+def private_key_api():
     keys = load_keys()
     return JsonResponse({'d': str(keys['d']), 'n': str(keys['n'])})
 
