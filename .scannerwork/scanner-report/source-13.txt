@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chiffrement RSA | Plateforme Cryptographique</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-secondary {
+            background: #7f8c8d;
+        }
+        .btn-secondary:hover {
+            background: #95a5a6;
+        }
+        .key-display, .result-display {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .nav-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Chiffrement RSA</h1>
+            <p>Protégez vos messages avec le chiffrement asymétrique</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Chargement de la clé publique</h2>
+            <p>Avant de chiffrer un message, vous devez charger la clé publique du destinataire.</p>
+            <button onclick="chargerClePublique()" class="btn">Charger la clé publique</button>
+            <div id="status"></div>
+            <div id="cle_publique" class="key-display">Aucune clé chargée</div>
+        </div>
+
+        <div class="card">
+            <h2>Chiffrement de message</h2>
+            <div class="form-group">
+                <label for="message">Message à chiffrer :</label>
+                <textarea id="message" placeholder="Entrez le texte que vous souhaitez chiffrer..."></textarea>
+            </div>
+            <button onclick="chiffrer()" class="btn">Chiffrer le message</button>
+            <div class="form-group">
+                <label>Résultat du chiffrement :</label>
+                <div id="resultat" class="result-display">Le texte chiffré apparaîtra ici...</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/decrypt/" class="btn btn-secondary">Aller au déchiffrement</a>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Plateforme Cryptographique RSA &copy; 2023 | Sécurité des données</p>
+        </div>
+    </footer>
+
+    <script>
+        let n, e;
+        const statusElement = document.getElementById('status');
+
+        function showStatus(message, isError = false) {
+            statusElement.className = isError ? 'status error' : 'status success';
+            statusElement.textContent = message;
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 5000);
+        }
+
+        async function chargerClePublique() {
+            const btn = document.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Chargement en cours...';
+            statusElement.style.display = 'none';
+
+            try {
+                const response = await fetch('/public-key/');
+                if (!response.ok) throw new Error('Erreur de réseau');
+
+                const data = await response.json();
+                if (!data.n || !data.e) throw new Error('Données de clé invalides');
+
+                n = BigInt(data.n);
+                e = BigInt(data.e);
+                document.getElementById('cle_publique').textContent =
+                    `Clé publique chargée :\nn = ${n}\ne = ${e}`;
+                showStatus('Clé publique chargée avec succès !');
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Erreur lors du chargement de la clé publique: ' + error.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Charger la clé publique';
+            }
+        }
+
+        function bigintToBase64(bigint) {
+            let hex = bigint.toString(16);
+            if (hex.length % 2) hex = "0" + hex;
+            const bytes = hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16));
+            const uint8Array = new Uint8Array(bytes);
+            return btoa(String.fromCharCode.apply(null, uint8Array)).replace(/=/g, '');
+        }
+
+        function chiffrer() {
+            if (!n || !e) {
+                showStatus("Veuillez d'abord charger la clé publique.", true);
+                return;
+            }
+            const message = document.getElementById('message').value;
+            if (!message) {
+                showStatus("Veuillez entrer un texte à chiffrer.", true);
+                return;
+            }
+
+            try {
+                let chiffres_base64 = [];
+                for (let i = 0; i < message.length; i++) {
+                    let m = BigInt(message.charCodeAt(i));
+                    if (m >= n) {
+                        showStatus(`Le caractère '${message[i]}' est trop grand pour le chiffrement avec cette clé.`, true);
+                        return;
+                    }
+                    let c = modPow(m, e, n);
+                    let c_b64 = bigintToBase64(c);
+                    chiffres_base64.push(c_b64);
+                }
+                document.getElementById('resultat').textContent = `Texte chiffré (Base64) :\n${chiffres_base64.join(" ")}`;
+                showStatus('Message chiffré avec succès !');
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Erreur lors du chiffrement: ' + error.message, true);
+            }
+        }
+
+        function modPow(base, exponent, modulus) {
+            if (modulus === 1n) return 0n;
+            let result = 1n;
+            base = base % modulus;
+            while (exponent > 0n) {
+                if (exponent % 2n === 1n) {
+                    result = (result * base) % modulus;
+                }
+                exponent = exponent / 2n;
+                base = (base * base) % modulus;
+            }
+            return result;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déchiffrement RSA | Plateforme Cryptographique</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-secondary {
+            background: #7f8c8d;
+        }
+        .btn-secondary:hover {
+            background: #95a5a6;
+        }
+        .key-display, .result-display {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .result-display {
+            border-left-color: #27ae60;
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+            min-height: 120px;
+            resize: vertical;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .nav-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .instructions {
+            background-color: #fffde7;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #ffd600;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Déchiffrement RSA</h1>
+            <p>Déchiffrez vos messages sécurisés avec votre clé privée</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Chargement de la clé privée</h2>
+            <div class="instructions">
+                <p><strong>Attention :</strong> Votre clé privée est confidentielle. Ne la partagez jamais.</p>
+            </div>
+            <button onclick="chargerClePrivee()" class="btn">Charger la clé privée</button>
+            <div id="status"></div>
+            <div id="cle_privee" class="key-display">Aucune clé chargée</div>
+        </div>
+
+        <div class="card">
+            <h2>Déchiffrement de message</h2>
+            <div class="form-group">
+                <label for="message_chiffre_input">Message chiffré (Base64) :</label>
+                <textarea id="message_chiffre_input" placeholder="Collez ici le texte chiffré, séparé par des espaces..."></textarea>
+            </div>
+            <button onclick="dechiffrer()" class="btn">Déchiffrer le message</button>
+            <div class="form-group">
+                <label>Résultat du déchiffrement :</label>
+                <div id="texte_clair" class="result-display">Le texte déchiffré apparaîtra ici...</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/crypt/" class="btn btn-secondary">Retour au chiffrement</a>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Plateforme Cryptographique RSA &copy; 2023 | Sécurité des données</p>
+        </div>
+    </footer>
+
+    <script>
+        let d, n;
+        const statusElement = document.getElementById('status');
+
+        function showStatus(message, isError = false) {
+            statusElement.className = isError ? 'status error' : 'status success';
+            statusElement.textContent = message;
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 5000);
+        }
+
+        async function chargerClePrivee() {
+            const btn = document.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Chargement en cours...';
+            statusElement.style.display = 'none';
+
+            try {
+                const response = await fetch('/private-key/');
+                if (!response.ok) throw new Error('Erreur de réseau');
+
+                const data = await response.json();
+                if (!data.d || !data.n) throw new Error('Données de clé invalides');
+
+                d = BigInt(data.d);
+                n = BigInt(data.n);
+                document.getElementById('cle_privee').textContent =
+                    `Clé privée chargée :\nd = ${d}\nn = ${n}`;
+                showStatus('Clé privée chargée avec succès !');
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Erreur lors du chargement de la clé privée: ' + error.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Charger la clé privée';
+            }
+        }
+
+        function base64ToBigInt(base64) {
+            try {
+                const binaryString = atob(base64);
+                let hex = "";
+                for (let i = 0; i < binaryString.length; i++) {
+                    let h = binaryString.charCodeAt(i).toString(16);
+                    if (h.length < 2) h = "0" + h;
+                    hex += h;
+                }
+                return BigInt("0x" + hex);
+            } catch (error) {
+                throw new Error('Format Base64 invalide');
+            }
+        }
+
+        function dechiffrer() {
+            if (!d || !n) {
+                showStatus("Veuillez d'abord charger la clé privée.", true);
+                return;
+            }
+
+            const texte = document.getElementById('message_chiffre_input').value.trim();
+            if (!texte) {
+                showStatus("Veuillez coller le texte chiffré (Base64).", true);
+                return;
+            }
+
+            try {
+                const blocs_base64 = texte.split(/\s+/);
+                let texteDechiffre = "";
+
+                for (let bloc_b64 of blocs_base64) {
+                    if (bloc_b64.trim() === "") continue;
+                    const c = base64ToBigInt(bloc_b64);
+                    const m = modPow(c, d, n);
+                    texteDechiffre += String.fromCharCode(Number(m));
+                }
+
+                document.getElementById('texte_clair').textContent = texteDechiffre;
+                showStatus('Message déchiffré avec succès !');
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Erreur lors du déchiffrement: ' + error.message, true);
+            }
+        }
+
+        function modPow(base, exponent, modulus) {
+            if (modulus === 1n) return 0n;
+            let result = 1n;
+            base = base % modulus;
+            while (exponent > 0n) {
+                if (exponent % 2n === 1n) {
+                    result = (result * base) % modulus;
+                }
+                exponent = exponent / 2n;
+                base = (base * base) % modulus;
+            }
+            return result;
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 projectKey=rsa_project
-serverUrl=https://2a7e863bb5c5.ngrok-free.app
+serverUrl=http://localhost:9000
 serverVersion=25.9.0.112764
-dashboardUrl=https://2a7e863bb5c5.ngrok-free.app/dashboard?id=rsa_project
-ceTaskId=11ae337e-2786-4dac-b245-dc92f20f23ff
-ceTaskUrl=https://2a7e863bb5c5.ngrok-free.app/api/ce/task?id=11ae337e-2786-4dac-b245-dc92f20f23ff
+dashboardUrl=http://localhost:9000/dashboard?id=rsa_project
+ceTaskId=8b434497-1fa0-4e07-809e-2b0250b21c7c
+ceTaskUrl=http://localhost:9000/api/ce/task?id=8b434497-1fa0-4e07-809e-2b0250b21c7c

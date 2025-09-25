@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureRSA | Solutions Cryptographiques Professionnelles</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2c3e50;   /* Bleu foncé - comme dans crypt/decrypt */
+            --secondary: #3498db;  /* Bleu clair - comme dans crypt/decrypt */
+            --accent: #e74c3c;    /* Rouge - comme dans crypt/decrypt */
+            --light: #ecf0f1;     /* Gris très clair - comme dans crypt/decrypt */
+            --dark: #2c3e50;      /* Bleu foncé - comme dans crypt/decrypt */
+            --success: #27ae60;   /* Vert - comme dans crypt/decrypt */
+            --text-light: #ffffff; /* Blanc */
+            --background: #f9f9f9; /* Fond légèrement grisé */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            line-height: 1.6;
+            background-color: var(--light); /* Utilisation du gris clair comme fond */
+        }
+
+        .navbar {
+            background-color: var(--primary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            color: var(--text-light);
+            font-size: 1.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo i {
+            margin-right: 10px;
+            color: var(--secondary); /* Bleu clair pour l'icône */
+        }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            margin-left: 2rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .nav-links a:hover {
+            color: var(--secondary);
+            background-color: rgba(255,255,255,0.1);
+        }
+
+                .hero {
+            background: white; /* Fond blanc */
+            color: var(--primary); /* Texte en bleu foncé pour contraste */
+            padding: 8rem 2rem 4rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(0,0,0,0.1); /* Légère bordure pour séparation */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); /* Ombre subtile */
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            animation: fadeIn 1s ease;
+            color: var(--primary); /* Titre en bleu foncé */
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto 2rem;
+            animation: fadeIn 1.5s ease;
+            opacity: 0.9;
+            color: var(--dark); /* Texte en gris foncé */
+        }
+        .btn {
+            display: inline-block;
+            background: var(--secondary); /* Bleu clair */
+            color: var(--text-light);
+            padding: 12px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 0 10px;
+            transition: all 0.3s;
+            border: 2px solid var(--secondary);
+            animation: fadeIn 2s ease;
+        }
+
+        .btn:hover {
+            background: transparent;
+            color: var(--secondary);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--text-light);
+            color: var(--text-light);
+        }
+
+        .btn-outline:hover {
+            background: var(--text-light);
+            color: var(--primary);
+        }
+
+        .footer {
+            background: var(--dark);
+            color: var(--text-light);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .footer-links a {
+            color: var(--text-light);
+            margin: 0 15px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--secondary);
+            text-decoration: underline;
+        }
+
+        .social-icons {
+            margin: 2rem 0;
+        }
+
+        .social-icons a {
+            color: var(--text-light);
+            font-size: 1.5rem;
+            margin: 0 10px;
+            transition: all 0.3s;
+        }
+
+        .social-icons a:hover {
+            color: var(--secondary);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 1rem;
+            }
+
+            .nav-links {
+                margin-top: 1rem;
+            }
+
+            .nav-links a {
+                margin: 0 10px;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-lock"></i>
+            <span>SecureRSA</span>
+        </div>
+        <div class="nav-links">
+            <a href="/keys/">Génération des clés</a>
+            <a href="#contact">Contact</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>Solutions Cryptographiques Sécurisées</h1>
+        <p>Protégez vos données sensibles avec notre technologie RSA de pointe, offrant un chiffrement asymétrique robuste pour vos communications et transactions.</p>
+        <a href="/keys/" class="btn">Commencer</a>
+        <a href="#contact" class="btn btn-outline">Nous contacter</a>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="contact">
+        <div class="footer-links">
+            <a href="/keys/">Génération des clés</a>
+            <a href="#">Mentions légales</a>
+            <a href="#">Politique de confidentialité</a>
+        </div>
+        <div class="social-icons">
+            <a href="#"><i class="fab fa-twitter"></i></a>
+            <a href="#"><i class="fab fa-linkedin"></i></a>
+            <a href="#"><i class="fab fa-github"></i></a>
+        </div>
+        <p>&copy; 2023 SecureRSA. Tous droits réservés.</p>
+        <p><i class="fas fa-envelope"></i> contact@securersa.com | <i class="fas fa-phone"></i> +33 1 23 45 67 89</p>
+    </footer>
+</body>
+</html>
