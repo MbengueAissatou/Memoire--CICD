@@ -36,4 +36,8 @@ jobs:
             -Dsonar.exclusions=rsa_app/tests/**
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+<<<<<<< HEAD
           SONAR_HOST_URL: http://sonarqube:9000  # ✅ Nom du service Docker
+=======
+          SONAR_HOST_URL: http://sonarqube:9000  # ✅ nom du service, pas localhost
+>>>>>>> e80f7d369d7b3f94b8936c2ed2876ae035cfa6f3
