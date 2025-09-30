@@ -34,6 +34,6 @@ jobs:
             -Dsonar.sources=rsa_app
             -Dsonar.tests=rsa_app/tests
             -Dsonar.exclusions=rsa_app/tests/**
+            -Dsonar.host.url=http://sonarqube:9000
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://sonarqube:9000
