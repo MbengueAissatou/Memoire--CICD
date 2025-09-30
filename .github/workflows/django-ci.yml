@@ -1,4 +1,3 @@
-# .github/workflows/sonarqube.yml
 name: SonarQube Scan
 
 on:
@@ -30,40 +29,21 @@ jobs:
       - name: Run tests with coverage
         env:
           DJANGO_SETTINGS_MODULE: rsa_app.settings
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python -m pytest \
             --cov=rsa_app \
             --cov-report=xml \
             --cov-report=term
 
-      - name: Install SonarScanner
-        run: |
-          export SONAR_SCANNER_VERSION=5.0.1.3006
-          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
-          unzip sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
-          sudo mv sonar-scanner-${SONAR_SCANNER_VERSION}-linux /opt/sonar-scanner
-          echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
-
-      - name: Start SonarQube in background
-        run: |
-          docker run -d --name sonarqube -p 9000:9000 sonarqube:community
-          # Attendre que SonarQube soit démarré
-          timeout 300 bash -c 'until curl -f http://localhost:9000/api/system/status; do sleep 10; done'
-
-      - name: Analyze with SonarScanner
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v4
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          sonar-scanner \
-            -Dsonar.projectKey=rsa_project \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=$SONAR_TOKEN \
-            -Dsonar.python.coverage.reportPaths=coverage.xml \
+        with:
+          args: >
+            -Dsonar.projectKey=rsa_project
+            -Dsonar.sources=.
+            -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.coverage.exclusions=**/tests/**
-
-      - name: Stop SonarQube
-        if: always()
-        run: |
-          docker stop sonarqube || true
-          docker rm sonarqube || true
