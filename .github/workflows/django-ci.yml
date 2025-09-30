@@ -1,4 +1,4 @@
-name: SonarQube Local Scan (Not Recommended)
+name: SonarQube Scan
 
 on:
   push:
@@ -18,26 +18,12 @@ jobs:
           --health-cmd="curl -f http://localhost:9000/api/system/status || exit 1"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=10
+          --health-retries=20
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Wait for SonarQube to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -s http://sonarqube:9000/api/system/status | grep -q '"status":"UP"'; then
-              echo "SonarQube is ready!"
-              exit 0
-            fi
-            echo "Waiting for SonarQube... ($i/30)"
-            sleep 10
-          done
-          echo "SonarQube failed to start"
-          exit 1
 
       - name: Run SonarScanner
         uses: SonarSource/sonarqube-scan-action@v2
@@ -45,7 +31,9 @@ jobs:
           args: >
             -Dsonar.projectKey=rsa_project
             -Dsonar.projectName=rsa_project
-            -Dsonar.sources=.
+            -Dsonar.sources=rsa_app
+            -Dsonar.tests=rsa_app/tests
+            -Dsonar.exclusions=rsa_app/tests/**
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://sonarqube:9000  # ← CORRIGÉ
+          SONAR_HOST_URL: http://sonarqube:9000  # ✅ Nom du service Docker
