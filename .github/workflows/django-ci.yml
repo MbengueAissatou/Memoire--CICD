@@ -1,47 +1,53 @@
-name: SonarQube Scan
+name: SonarQube Local Scan (Not Recommended)
 
 on:
   push:
     branches:
       - master
   pull_request:
+    branches:
+      - master
 
 jobs:
   sonar:
     runs-on: ubuntu-latest
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd="curl -f http://localhost:9000/api/system/status || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    - name: Set up Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: temurin
-        java-version: 17
+      - name: Wait for SonarQube to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:9000/api/system/status | grep -q '"status":"UP"'; then
+              echo "SonarQube is ready!"
+              exit 0
+            fi
+            echo "Waiting for SonarQube... ($i/30)"
+            sleep 10
+          done
+          echo "SonarQube failed to start"
+          exit 1
 
-    - name: Download ngrok
-      run: |
-        wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
-        unzip ngrok-stable-linux-amd64.zip
-        chmod +x ngrok
-    - name: Start SonarQube (Docker)
-      run: |
-        docker run -d --name sonarqube -p 9000:9000 sonarqube:community
-        sleep 60  # attendre que SonarQube démarre
-    - name: Start ngrok to expose SonarQube
-      run: |
-        ./ngrok http 9000 --log=stdout > ngrok.log &
-        sleep 10
-        export SONAR_HOST_URL=$(grep -o 'https://[a-z0-9.-]*.ngrok.io' ngrok.log | head -n1)
-        echo "SONAR_HOST_URL=$SONAR_HOST_URL" >> $GITHUB_ENV
-    - name: Run SonarScanner
-      uses: SonarSource/sonarqube-scan-action@v2
-      with:
-        args: >
-          -Dsonar.projectKey=rsa_project
-          -Dsonar.projectName=rsa_project
-          -Dsonar.sources=.
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+      - name: Run SonarScanner
+        uses: SonarSource/sonarqube-scan-action@v2
+        with:
+          args: >
+            -Dsonar.projectKey=rsa_project
+            -Dsonar.projectName=rsa_project
+            -Dsonar.sources=.
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://localhost:9000
