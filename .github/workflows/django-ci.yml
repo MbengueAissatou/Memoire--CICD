@@ -18,7 +18,7 @@ jobs:
           --health-cmd="curl -f http://localhost:9000/api/system/status || exit 1"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=20  # augmente un peu
+          --health-retries=20
 
     steps:
       - uses: actions/checkout@v3
@@ -34,4 +34,4 @@ jobs:
             -Dsonar.sources=.
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://sonarqube:9000  # ✅ nom du service
+          SONAR_HOST_URL: http://sonarqube:9000  # ✅ nom du service, pas localhost
