@@ -72,63 +72,58 @@ jobs:
               print('✓ rsa_app.settings imported successfully')
           except ImportError as e:
               print(f'✗ rsa_app.settings import failed: {e}')
-          print()
-          # Try to find the correct module name
-          import os
-          for root, dirs, files in os.walk('.'):
-              if 'settings.py' in files:
-                  rel_path = os.path.relpath(root, '.')
-                  if rel_path == '.':
-                      module_name = 'settings'
-                  else:
-                      module_name = rel_path.replace('/', '.') + '.settings'
-                  print(f'Found settings.py in: {root} -> try: {module_name}')
-                  try:
-                      __import__(module_name)
-                      print(f'✓ SUCCESS: {module_name} can be imported!')
-                  except ImportError as e:
-                      print(f'  ✗ {module_name} import failed: {e}')
           "
 
-      - name: Create pytest.ini with correct settings
+      - name: Create pytest.ini
         run: |
-          # Find the correct settings module
-          SETTINGS_MODULE=$(python -c "
-          import os
-          for root, dirs, files in os.walk('.'):
-              if 'settings.py' in files:
-                  rel_path = os.path.relpath(root, '.')
-                  if rel_path == '.':
-                      print('settings')
-                  else:
-                      print(rel_path.replace('/', '.') + '.settings')
-                  break
-          " 2>/dev/null || echo "rsa_app.settings")
-          
-          echo "Detected settings module: $SETTINGS_MODULE"
-          
           cat > pytest.ini << EOF
           [pytest]
-          DJANGO_SETTINGS_MODULE = $SETTINGS_MODULE
+          DJANGO_SETTINGS_MODULE = rsa_app.settings
           django_find_project = false
           python_files = tests.py test_*.py *_tests.py
           addopts = --cov=rsa_app --cov-report=xml --cov-report=term
           EOF
-          
-          echo "Created pytest.ini with:"
+          echo "Created pytest.ini:"
           cat pytest.ini
 
       - name: Run tests with coverage
         env:
-          DJANGO_SETTINGS_MODULE: ${{ fromJSON('\"rsa_app.settings\"') }}  # Cette ligne sera ajustée
+          DJANGO_SETTINGS_MODULE: rsa_app.settings  # LIGNE CORRIGÉE
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Using DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
-          echo "Python path:"
-          python -c "import sys; print('\n'.join(sys.path))"
           python -m pytest \
             --cov=rsa_app \
             --cov-report=xml \
             --cov-report=term
 
-      # ... reste pour SonarQube
+      - name: Install SonarScanner
+        run: |
+          export SONAR_SCANNER_VERSION=5.0.1.3006
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
+          unzip sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
+          sudo mv sonar-scanner-${SONAR_SCANNER_VERSION}-linux /opt/sonar-scanner
+          echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
+
+      - name: Start SonarQube
+        run: |
+          docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+          timeout 180 bash -c 'until curl -f http://localhost:9000/api/system/status; do sleep 10; done'
+
+      - name: Analyze with SonarScanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=rsa_project \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=$SONAR_TOKEN \
+            -Dsonar.python.coverage.reportPaths=coverage.xml \
+            -Dsonar.coverage.exclusions=**/tests/**
+
+      - name: Stop SonarQube
+        if: always()
+        run: |
+          docker stop sonarqube || true
+          docker rm sonarqube || true
