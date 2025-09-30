@@ -10,17 +10,7 @@ on:
 jobs:
   sonar:
     runs-on: ubuntu-latest
-    services:
-      sonarqube:
-        image: sonarqube:community
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd="curl -f http://localhost:9000/api/system/status || exit 1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=20
-
+    
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,17 +23,32 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-django pytest-cov
 
       - name: Run tests with coverage
         env:
-          DJANGO_SETTINGS_MODULE: rsa_app.settings  # ← ADAPTE CE CHEMIN
+          DJANGO_SETTINGS_MODULE: rsa_app.settings
         run: |
           python -m pytest \
             --cov=rsa_app \
             --cov-report=xml \
             --cov-report=term
+
+      - name: Install SonarScanner
+        run: |
+          export SONAR_SCANNER_VERSION=5.0.1.3006
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
+          unzip sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip
+          sudo mv sonar-scanner-${SONAR_SCANNER_VERSION}-linux /opt/sonar-scanner
+          echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
+
+      - name: Start SonarQube in background
+        run: |
+          docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+          # Attendre que SonarQube soit démarré
+          timeout 300 bash -c 'until curl -f http://localhost:9000/api/system/status; do sleep 10; done'
 
       - name: Analyze with SonarScanner
         env:
@@ -51,9 +56,14 @@ jobs:
         run: |
           sonar-scanner \
             -Dsonar.projectKey=rsa_project \
-            -Dsonar.sources=rsa_app \
-            -Dsonar.tests=rsa_app/tests \
-            -Dsonar.exclusions=rsa_app/tests/** \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=$SONAR_TOKEN \
             -Dsonar.python.coverage.reportPaths=coverage.xml \
-            -Dsonar.host.url=http://sonarqube:9000 \
-            -Dsonar.login=$SONAR_TOKEN
+            -Dsonar.coverage.exclusions=**/tests/**
+
+      - name: Stop SonarQube
+        if: always()
+        run: |
+          docker stop sonarqube || true
+          docker rm sonarqube || true
