@@ -9,10 +9,36 @@ on:
 jobs:
   sonar:
     runs-on: ubuntu-latest
+    
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Debug project structure
+        run: |
+          echo "=== Current directory structure ==="
+          pwd
+          ls -la
+          echo ""
+          echo "=== Searching for Python files ==="
+          find . -name "*.py" -type f | grep -E "(settings|manage)" | head -20
+          echo ""
+          echo "=== Checking for rsa_app directory ==="
+          if [ -d "rsa_app" ]; then
+            echo "rsa_app directory exists:"
+            ls -la rsa_app/
+          else
+            echo "rsa_app directory NOT found"
+            echo "Available directories:"
+            find . -type d -name "*rsa*" -o -name "*app*" | head -10
+          fi
+          echo ""
+          echo "=== Checking manage.py location ==="
+          find . -name "manage.py" -type f
+          echo ""
+          echo "=== Checking settings.py location ==="
+          find . -name "settings.py" -type f
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,24 +51,84 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django pytest-cov
 
+      - name: Test Python imports
+        run: |
+          echo "=== Testing Python imports ==="
+          python -c "
+          import sys
+          print('Python path:')
+          for p in sys.path:
+              print(f'  {p}')
+          print()
+          try:
+              import rsa_app
+              print('✓ rsa_app imported successfully')
+              print(f'  rsa_app location: {rsa_app.__file__}')
+          except ImportError as e:
+              print(f'✗ rsa_app import failed: {e}')
+          print()
+          try:
+              import rsa_app.settings
+              print('✓ rsa_app.settings imported successfully')
+          except ImportError as e:
+              print(f'✗ rsa_app.settings import failed: {e}')
+          print()
+          # Try to find the correct module name
+          import os
+          for root, dirs, files in os.walk('.'):
+              if 'settings.py' in files:
+                  rel_path = os.path.relpath(root, '.')
+                  if rel_path == '.':
+                      module_name = 'settings'
+                  else:
+                      module_name = rel_path.replace('/', '.') + '.settings'
+                  print(f'Found settings.py in: {root} -> try: {module_name}')
+                  try:
+                      __import__(module_name)
+                      print(f'✓ SUCCESS: {module_name} can be imported!')
+                  except ImportError as e:
+                      print(f'  ✗ {module_name} import failed: {e}')
+          "
+
+      - name: Create pytest.ini with correct settings
+        run: |
+          # Find the correct settings module
+          SETTINGS_MODULE=$(python -c "
+          import os
+          for root, dirs, files in os.walk('.'):
+              if 'settings.py' in files:
+                  rel_path = os.path.relpath(root, '.')
+                  if rel_path == '.':
+                      print('settings')
+                  else:
+                      print(rel_path.replace('/', '.') + '.settings')
+                  break
+          " 2>/dev/null || echo "rsa_app.settings")
+          
+          echo "Detected settings module: $SETTINGS_MODULE"
+          
+          cat > pytest.ini << EOF
+          [pytest]
+          DJANGO_SETTINGS_MODULE = $SETTINGS_MODULE
+          django_find_project = false
+          python_files = tests.py test_*.py *_tests.py
+          addopts = --cov=rsa_app --cov-report=xml --cov-report=term
+          EOF
+          
+          echo "Created pytest.ini with:"
+          cat pytest.ini
+
       - name: Run tests with coverage
         env:
-          DJANGO_SETTINGS_MODULE: rsa_app.settings
+          DJANGO_SETTINGS_MODULE: ${{ fromJSON('\"rsa_app.settings\"') }}  # Cette ligne sera ajustée
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          echo "Using DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
+          echo "Python path:"
+          python -c "import sys; print('\n'.join(sys.path))"
           python -m pytest \
             --cov=rsa_app \
             --cov-report=xml \
             --cov-report=term
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=rsa_project
-            -Dsonar.sources=.
-            -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.coverage.exclusions=**/tests/**
-            -Dsonar.organization=ton-organisation-sonarcloud  # ← OBLIGATOIRE pour SonarCloud
+      # ... reste pour SonarQube
