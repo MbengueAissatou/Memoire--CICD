@@ -1,53 +1,65 @@
-name: SonarQube Scan
+name: 🔐 OWASP Dependency-Check
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
 
 jobs:
-  sonar:
+  dependency-check:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - uses: actions/checkout@v4
+      # 1. Récupérer le code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Installer Java (nécessaire pour dependency-check)
+      - name: Setup Java
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 0
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: Debug project structure
+      # 3. Installer OWASP Dependency-Check
+      - name: Install Dependency-Check
         run: |
-          echo "=== Project structure ==="
-          find . -name "*.py" | head -20
-          ls -la
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/dependency-check-10.0.3-release.zip
+          unzip dependency-check-10.0.3-release.zip -d $HOME/dependency-check
+          chmod +x $HOME/dependency-check/dependency-check/bin/dependency-check.sh
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # 4. Lancer l’analyse
+      - name: Run Dependency-Check
+        run: |
+          $HOME/dependency-check/dependency-check/bin/dependency-check.sh \
+            --project "scanfield-php" \
+            --scan ./ \
+            --format ALL \
+            --out ./ \
+            --prettyPrint
+
+          mv dependency-check-report.xml dependency-check-report-php.xml || true
+
+      # 5. Générer un PDF si wkhtmltopdf est disponible
+      - name: Install wkhtmltopdf
+        run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf
+
+      - name: Convert report to PDF
+        run: |
+          if command -v wkhtmltopdf > /dev/null; then
+            echo "➡ Génération du rapport PDF..."
+            wkhtmltopdf dependency-check-report.html rapport-owasp-report-php.pdf
+          else
+            echo "⚠ wkhtmltopdf non installé, PDF non généré"
+          fi
+
+      # 6. Uploader les rapports comme artefacts GitHub
+      - name: Upload Dependency-Check Reports
+        uses: actions/upload-artifact@v3
         with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Run tests without Django plugin
-        run: |
-          python -m pytest \
-            --cov=rsa_app \
-            --cov-report=xml \
-            --cov-report=term \
-            -p no:django
-
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=rsa_project
-            -Dsonar.sources=.
-            -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.coverage.exclusions=**/tests/**
+          name: owasp-dependency-check-reports
+          path: |
+            dependency-check-report-php.xml
+            dependency-check-report.html
+            rapport-owasp-report-php.pdf
