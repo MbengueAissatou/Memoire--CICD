@@ -1,41 +1,56 @@
 pipeline {
     agent any
 
+    environment {
+        // ID du credential Jenkins contenant ton token SonarQube
+        SONAR_TOKEN = credentials('sonar-token') 
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                echo '📦 Clonage du dépôt...'
-                git branch: 'master', url: 'https://github.com/MbengueAissatou/Memoire--CICD.git'
+                // Récupération du code depuis GitHub avec credential
+                git branch: 'master', 
+                    url: 'https://github.com/MbengueAissatou/Memoire--CICD.git', 
+                    credentialsId: 'github-jenkins'
             }
         }
 
         stage('Build') {
             steps {
-                echo '🔧 Build du projet...'
-                // Ajoute ici les commandes pour construire ton projet, ex : sh 'php artisan migrate' pour Laravel
+                // Compilation du projet Maven
+                sh 'mvn clean install'
             }
         }
 
-        stage('Test') {
+        stage('SonarQube Analysis') {
             steps {
-                echo '🧪 Exécution des tests...'
-                // Ajoute ici les commandes pour tes tests, ex : sh 'php artisan test'
+                // Exécute l'analyse SonarQube
+                withSonarQubeEnv('SonarQube') { // Nom de ton SonarQube server dans Jenkins
+                    sh 'mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN'
+                }
             }
         }
 
-        stage('Deploy') {
+        stage('Quality Gate') {
             steps {
-                echo '🚀 Déploiement (simulation)...'
+                // Vérifie que l'analyse respecte le Quality Gate SonarQube
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
     }
 
     post {
+        always {
+            echo 'Pipeline terminé !'
+        }
         success {
-            echo '✅ Build réussi !'
+            echo 'Build et analyse SonarQube réussis ✅'
         }
         failure {
-            echo '❌ Build échoué.'
+            echo 'Build ou analyse échouée ❌'
         }
     }
 }
