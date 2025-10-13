@@ -1,5 +1,14 @@
+// ====================================
+// PIPELINE CORRIGÉ - Maven Configuré
+// ====================================
+
 pipeline {
     agent any
+    
+    // 🔧 AJOUT IMPORTANT: Déclarer Maven comme outil
+    tools {
+        maven 'Maven'  // Le nom doit correspondre à celui configuré dans Jenkins
+    }
     
     environment {
         SONAR_TOKEN = credentials('jenkins_sonar')
@@ -15,106 +24,39 @@ pipeline {
             }
         }
         
-        stage('Setup Python Environment') {
+        stage('Build') {
             steps {
-                echo '🐍 Setting up Python virtual environment...'
-                sh '''
-                    # Vérifier la version de Python
-                    python3 --version
-                    
-                    # Créer un environnement virtuel
-                    python3 -m venv venv
-                    
-                    # Activer l'environnement virtuel et installer les dépendances
-                    . venv/bin/activate
-                    pip install --upgrade pip
-                    
-                    # Installer les dépendances si requirements.txt existe
-                    if [ -f requirements.txt ]; then
-                        pip install -r requirements.txt
-                    else
-                        # Installer les packages minimum pour Django
-                        pip install Django coverage pylint pylint-django
-                    fi
-                    
-                    # Afficher les packages installés
-                    pip list
-                '''
+                echo '🔨 Building project with Maven...'
+                sh 'mvn clean install -DskipTests'
             }
         }
         
-        stage('Run Tests') {
+        stage('Test') {
             steps {
-                echo '🧪 Running Django tests...'
-                sh '''
-                    . venv/bin/activate
-                    
-                    # Vérifier si manage.py existe
-                    if [ -f manage.py ]; then
-                        # Exécuter les tests Django avec coverage
-                        coverage run --source='.' manage.py test --noinput || true
-                        
-                        # Générer le rapport de couverture XML pour SonarQube
-                        coverage xml -o coverage.xml
-                        
-                        # Afficher le rapport de couverture
-                        coverage report
-                    else
-                        echo "⚠️ manage.py not found, skipping tests"
-                    fi
-                '''
-            }
-        }
-        
-        stage('Code Quality - Pylint') {
-            steps {
-                echo '🔍 Running code quality checks...'
-                sh '''
-                    . venv/bin/activate
-                    
-                    # Exécuter pylint sur les fichiers Python (ne pas bloquer le build)
-                    find . -name "*.py" -not -path "./venv/*" -not -path "./migrations/*" | xargs pylint --exit-zero || true
-                '''
+                echo '🧪 Running tests...'
+                sh 'mvn test'
             }
         }
         
         stage('SonarQube Analysis') {
             steps {
                 echo '📊 Starting SonarQube analysis...'
-                script {
-                    // Utiliser SonarScanner pour les projets Python
-                    def scannerHome = tool 'SonarScanner'
-                    withSonarQubeEnv('SonarQube') {
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=memoire-cicd \
-                                -Dsonar.projectName='Memoire CI-CD Django' \
-                                -Dsonar.sources=. \
-                                -Dsonar.exclusions=**/venv/**,**/migrations/**,**/static/**,**/media/**,**/__pycache__/** \
-                                -Dsonar.python.version=3 \
-                                -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
-                                -Dsonar.login=${SONAR_TOKEN}
-                        """
-                    }
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        mvn sonar:sonar \
+                            -Dsonar.projectKey=memoire-cicd \
+                            -Dsonar.projectName="Memoire CI-CD" \
+                            -Dsonar.login=${SONAR_TOKEN}
+                    '''
                 }
             }
         }
         
         stage('Quality Gate') {
             steps {
-                echo '⏳ Waiting for Quality Gate result...'
+                echo '⏳ Waiting for Quality Gate...'
                 timeout(time: 5, unit: 'MINUTES') {
-                    script {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            echo "⚠️ Quality Gate status: ${qg.status}"
-                            // Ne pas bloquer le build pour l'instant
-                            // error "Quality Gate failed: ${qg.status}"
-                        } else {
-                            echo "✅ Quality Gate passed!"
-                        }
-                    }
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -123,15 +65,126 @@ pipeline {
     post {
         always {
             echo '🏁 Pipeline terminé !'
-            
-            // Nettoyer l'environnement virtuel
-            sh 'rm -rf venv || true'
         }
         success {
             echo '✅ Build et analyse SonarQube réussis !'
         }
         failure {
-            echo '❌ Build ou analyse échouée ! Vérifiez les logs ci-dessus.'
+            echo '❌ Build ou analyse échouée !'
         }
     }
 }
+
+// ====================================
+// ÉTAPES DE CONFIGURATION MAVEN
+// ====================================
+/*
+
+📋 ÉTAPE 1: Configurer Maven dans Jenkins
+
+1. Aller dans Jenkins → Manage Jenkins → Global Tool Configuration
+
+2. Chercher la section "Maven"
+
+3. Cliquer sur "Add Maven"
+
+4. Configurer:
+   - Name: Maven (⚠️ Ce nom doit correspondre à tools { maven 'Maven' })
+   - Install automatically: ✅ COCHÉ
+   - Version: Choisir la dernière version (ex: 3.9.6)
+
+5. Cliquer sur "Save"
+
+6. Redémarrer Jenkins (optionnel mais recommandé):
+   docker restart jenkins
+   # ou
+   systemctl restart jenkins
+
+*/
+
+// ====================================
+// ALTERNATIVE: Maven via Docker
+// ====================================
+/*
+
+Si vous utilisez Jenkins dans Docker, utilisez ce pipeline:
+
+pipeline {
+    agent {
+        docker {
+            image 'maven:3.9.6-eclipse-temurin-17'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    
+    environment {
+        SONAR_TOKEN = credentials('jenkins_sonar')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'master', 
+                    url: 'https://github.com/MbengueAissatou/Memoire--CICD.git', 
+                    credentialsId: 'github-jenkins'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'mvn clean install -DskipTests'
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}'
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+}
+
+*/
+
+// ====================================
+// VÉRIFICATION MAVEN
+// ====================================
+/*
+
+Pour vérifier que Maven est bien configuré, créez un pipeline de test:
+
+pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven'
+    }
+    
+    stages {
+        stage('Check Maven') {
+            steps {
+                sh '''
+                    echo "=== Maven Version ==="
+                    mvn --version
+                    echo ""
+                    echo "=== Java Version ==="
+                    java -version
+                '''
+            }
+        }
+    }
+}
+
+Si cette commande fonctionne, Maven est bien configuré!
+
+*/
