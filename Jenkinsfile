@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
     
     environment {
         SONAR_TOKEN = credentials('jenkins_sonar')
@@ -9,31 +14,25 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo '📦 Cloning repository...'
-                git branch: 'master', 
-                    url: 'https://github.com/MbengueAissatou/Memoire--CICD.git', 
-                    credentialsId: 'github-jenkins'
+                checkout scm
             }
         }
         
         stage('Setup Python Environment') {
             steps {
-                echo '🐍 Setting up Python virtual environment...'
+                echo '🐍 Setting up Python environment...'
                 sh '''
-                    # Vérifier la version de Python
-                    python3 --version
+                    # Afficher la version de Python
+                    python --version
                     
-                    # Créer un environnement virtuel
-                    python3 -m venv venv
-                    
-                    # Activer l'environnement virtuel et installer les dépendances
-                    . venv/bin/activate
+                    # Mettre à jour pip
                     pip install --upgrade pip
                     
-                    # Installer les dépendances si requirements.txt existe
+                    # Installer les dépendances
                     if [ -f requirements.txt ]; then
                         pip install -r requirements.txt
                     else
-                        # Installer les packages minimum pour Django
+                        # Installer les packages minimum
                         pip install Django coverage pylint pylint-django
                     fi
                     
@@ -47,20 +46,17 @@ pipeline {
             steps {
                 echo '🧪 Running Django tests...'
                 sh '''
-                    . venv/bin/activate
-                    
                     # Vérifier si manage.py existe
                     if [ -f manage.py ]; then
                         # Exécuter les tests Django avec coverage
                         coverage run --source='.' manage.py test --noinput || true
                         
-                        # Générer le rapport de couverture XML pour SonarQube
+                        # Générer le rapport de couverture
                         coverage xml -o coverage.xml
-                        
-                        # Afficher le rapport de couverture
                         coverage report
                     else
-                        echo "⚠️ manage.py not found, skipping tests"
+                        echo "⚠️ manage.py not found, creating dummy coverage file"
+                        echo '<?xml version="1.0" ?><coverage version="1.0"></coverage>' > coverage.xml
                     fi
                 '''
             }
@@ -70,9 +66,7 @@ pipeline {
             steps {
                 echo '🔍 Running code quality checks...'
                 sh '''
-                    . venv/bin/activate
-                    
-                    # Exécuter pylint sur les fichiers Python (ne pas bloquer le build)
+                    # Exécuter pylint sur les fichiers Python
                     find . -name "*.py" -not -path "./venv/*" -not -path "./migrations/*" | xargs pylint --exit-zero || true
                 '''
             }
@@ -82,7 +76,6 @@ pipeline {
             steps {
                 echo '📊 Starting SonarQube analysis...'
                 script {
-                    // Utiliser SonarScanner pour les projets Python
                     def scannerHome = tool 'SonarScanner'
                     withSonarQubeEnv('SonarQube') {
                         sh """
@@ -109,8 +102,6 @@ pipeline {
                         def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
                             echo "⚠️ Quality Gate status: ${qg.status}"
-                            // Ne pas bloquer le build pour l'instant
-                            // error "Quality Gate failed: ${qg.status}"
                         } else {
                             echo "✅ Quality Gate passed!"
                         }
@@ -123,9 +114,6 @@ pipeline {
     post {
         always {
             echo '🏁 Pipeline terminé !'
-            
-            // Nettoyer l'environnement virtuel
-            sh 'rm -rf venv || true'
         }
         success {
             echo '✅ Build et analyse SonarQube réussis !'
