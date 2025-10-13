@@ -1,15 +1,12 @@
+
 pipeline {
     agent any
-    
-    // 🔧 AJOUTEZ CETTE SECTION
-    tools {
-        maven 'Maven'  // ⚠️ Le nom doit être exactement 'Maven'
-    }
-    
+
     environment {
-        SONAR_TOKEN = credentials('jenkins_sonar') 
+        SONAR_TOKEN = credentials('jenkins_sonar')
+        VENV = "venv"
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -18,21 +15,44 @@ pipeline {
                     credentialsId: 'github-jenkins'
             }
         }
-        
-        stage('Build') {
+
+        stage('Setup Python Environment') {
             steps {
-                sh 'mvn clean install'
+                sh '''
+                    python3 -m venv $VENV
+                    . $VENV/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
             }
         }
-        
+
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    . $VENV/bin/activate
+                    python manage.py test
+                '''
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN'
+                    sh '''
+                        . $VENV/bin/activate
+                        sonar-scanner \
+                          -Dsonar.projectKey=Memoire-CICD \
+                          -Dsonar.sources=. \
+                          -Dsonar.language=py \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
-        
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -41,7 +61,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             echo 'Pipeline terminé !'
