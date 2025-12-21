@@ -23,6 +23,9 @@ jobs:
         run: |
          sudo apt-get update
          sudo apt-get install -y wget unzip
+      - name: Clean Dependency-Check DB
+        run: |
+         rm -rf ~/.dependency-check
       - name: Install Dependency-Check
         run: |
          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.4/dependency-check-10.0.4-release.zip
