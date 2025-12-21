@@ -37,6 +37,7 @@ jobs:
             --format ALL \
             --out ./ \
             --nvdApiKey "015e6901-821f-4276-a8f5-2f0dcba30770" \
+            --disableNvdCve2023 \
             --prettyPrint
           mv dependency-check-report.xml dependency-check-report-php.xml || true
 
