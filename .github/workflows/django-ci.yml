@@ -25,8 +25,8 @@ jobs:
          sudo apt-get install -y wget unzip
       - name: Install Dependency-Check
         run: |
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/dependency-check-10.0.3-release.zip
-          unzip dependency-check-10.0.3-release.zip -d $HOME/dependency-check
+         wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.4/dependency-check-10.0.4-release.zip
+          unzip dependency-check-10.0.4-release.zip -d $HOME/dependency-check
           chmod +x $HOME/dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Run Dependency-Check
@@ -37,7 +37,7 @@ jobs:
             --format ALL \
             --out ./ \
             --nvdApiKey "015e6901-821f-4276-a8f5-2f0dcba30770" \
-            --disableAutoUpdate \
+            # --disableAutoUpdate \
             --prettyPrint
           mv dependency-check-report.xml dependency-check-report-php.xml || true
 
