@@ -40,7 +40,8 @@ jobs:
             --format ALL \
             --out ./ \
             --nvdApiKey "015e6901-821f-4276-a8f5-2f0dcba30770" \
-            --disableOssIndex \
+            --ossindexUsername "astoumbengue083@gmail.com" \     
+            --ossindexPassword "b85e399206dc5bf0cf660c110efd396915e37d" \
             --prettyPrint
           mv dependency-check-report.xml dependency-check-report-php.xml || true
 
