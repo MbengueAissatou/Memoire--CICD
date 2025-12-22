@@ -41,7 +41,6 @@ jobs:
             --out ./ \
             --nvdApiKey "015e6901-821f-4276-a8f5-2f0dcba30770" \
             --disableOssIndex \
-            --noupdate \
             --prettyPrint
           mv dependency-check-report.xml dependency-check-report-php.xml || true
 
