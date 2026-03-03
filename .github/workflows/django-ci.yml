@@ -19,11 +19,17 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-
+      - name: Install dependencies
+        run: |
+         sudo apt-get update
+         sudo apt-get install -y wget unzip
+      - name: Clean Dependency-Check DB
+        run: |
+         rm -rf ~/.dependency-check
       - name: Install Dependency-Check
         run: |
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/dependency-check-10.0.3-release.zip
-          unzip dependency-check-10.0.3-release.zip -d $HOME/dependency-check
+         wget https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
+          unzip dependency-check-12.1.0-release.zip -d $HOME/dependency-check
           chmod +x $HOME/dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Run Dependency-Check
@@ -33,6 +39,8 @@ jobs:
             --scan ./ \
             --format ALL \
             --out ./ \
+            --nvdApiKey "015e6901-821f-4276-a8f5-2f0dcba30770" \
+            --disableOssIndex \
             --prettyPrint
           mv dependency-check-report.xml dependency-check-report-php.xml || true
 
