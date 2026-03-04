@@ -23,7 +23,7 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'venv/bin/python -m unittest discover'
+                sh 'venv/bin/python -m unittest discover rsa_app/testsr'
             }
         }
     }
