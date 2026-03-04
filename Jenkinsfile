@@ -9,17 +9,22 @@ pipeline {
             }
         }
 
+        stage('Create Virtual Env') {
+            steps {
+                sh 'python3 -m venv venv'
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
-                sh 'pip install -r requirements.txt'
+                sh 'venv/bin/pip install -r requirements.txt'
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'python -m unittest discover'
+                sh 'venv/bin/python -m unittest discover'
             }
         }
-
     }
 }
