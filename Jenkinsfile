@@ -2,16 +2,24 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
+
+        stage('Checkout') {
             steps {
-                echo 'Build en cours...'
+                checkout scm
             }
         }
 
-        stage('Test') {
+        stage('Install Dependencies') {
             steps {
-                echo 'Tests en cours...'
+                bat 'pip install -r requirements.txt'
             }
         }
+
+        stage('Run Tests') {
+            steps {
+                bat 'python -m unittest discover'
+            }
+        }
+
     }
 }
