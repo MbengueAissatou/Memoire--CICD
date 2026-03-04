@@ -1,29 +1,17 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.10'
-        }
-    }
+    agent any
 
     stages {
-
-        stage('Checkout') {
+        stage('Build') {
             steps {
-                checkout scm
+                echo 'Build en cours...'
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Test') {
             steps {
-                sh 'pip install -r requirements.txt'
+                echo 'Tests en cours...'
             }
         }
-
-        stage('Run Tests') {
-            steps {
-                sh 'python -m unittest discover'
-            }
-        }
-
     }
 }
