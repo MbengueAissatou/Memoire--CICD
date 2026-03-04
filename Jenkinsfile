@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DJANGO_SETTINGS_MODULE = 'memoire.settings'  
+        DJANGO_SETTINGS_MODULE = 'rsa_project.settings'
     }
 
     stages {
@@ -30,7 +30,7 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'venv/bin/python -m pytest rsa_app/tests'
+                sh 'venv/bin/python -m pytest rsa_app/tests -v'
             }
         }
     }
