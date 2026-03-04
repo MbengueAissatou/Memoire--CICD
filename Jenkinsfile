@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        DJANGO_SETTINGS_MODULE = 'memoire.settings'  
+    }
+
     stages {
 
         stage('Checkout') {
@@ -19,7 +23,7 @@ pipeline {
             steps {
                 sh '''
                     venv/bin/pip install -r requirements.txt
-                    venv/bin/pip install pytest
+                    venv/bin/pip install pytest pytest-django
                 '''
             }
         }
