@@ -25,7 +25,16 @@ pipeline {
                     python3 -m venv venv
                     venv/bin/pip install --upgrade pip
                     venv/bin/pip install -r requirements.txt
-                    venv/bin/pip install pytest pytest-django flake8 safety
+                    venv/bin/pip install pytest pytest-django flake8
+
+                    # Suppression version Safety 3.x si présente
+                    venv/bin/pip uninstall -y safety || true
+
+                    # Installation version compatible CI
+                    venv/bin/pip install safety==2.3.5
+
+                    # Vérification version
+                    venv/bin/safety --version
                 '''
             }
         }
@@ -42,27 +51,21 @@ pipeline {
             }
         }
 
-        // 🔐 1️⃣ Scan des secrets
+        // 🔐 Scan Secrets
         stage('Scan Secrets') {
             steps {
                 sh 'trufflehog filesystem . --only-verified --no-update'
             }
         }
 
-        // 🔐 2️⃣ Scan des dépendances (Mode CI stable)
+        // 🔐 Scan Dépendances (Safety 2.x non interactif)
         stage('Scan Dependencies') {
             steps {
-                sh '''
-                    venv/bin/safety scan \
-                        --file=requirements.txt \
-                        --no-deps \
-                        --severity=critical \
-                        --exit-code 1
-                '''
+                sh 'venv/bin/safety check -r requirements.txt --full-report'
             }
         }
 
-        // 🔐 3️⃣ Analyse statique SonarQube
+        // 🔐 Analyse statique SonarQube
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -91,7 +94,7 @@ pipeline {
             }
         }
 
-        // 🔐 4️⃣ Scan image Docker
+        // 🔐 Scan image Docker
         stage('Scan Docker Image') {
             steps {
                 sh """
@@ -137,7 +140,7 @@ pipeline {
             echo '✅ Pipeline DevSecOps terminé avec succès !'
         }
         failure {
-            echo '❌ Pipeline échoué - vérifiez les logs de sécurité.'
+            echo '❌ Pipeline échoué - vérifiez les logs.'
         }
         always {
             echo '🔄 Pipeline terminé.'
