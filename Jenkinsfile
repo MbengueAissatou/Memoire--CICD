@@ -38,11 +38,12 @@ pipeline {
         }
 
         // 🔐 SÉCURITÉ 1 : Détection de secrets
-        stage('Scan Secrets') {
-            steps {
-                sh 'trufflehog filesystem . --only-verified'
-            }
-        }
+        
+stage('Scan Secrets') {
+    steps {
+        sh 'trufflehog filesystem . --only-verified --no-update'
+    }
+}
 
         // 🔐 SÉCURITÉ 2 : Dépendances vulnérables
         stage('Scan Dependencies') {
