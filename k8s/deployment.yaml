@@ -22,3 +22,10 @@ spec:
         env:
         - name: DJANGO_SETTINGS_MODULE
           value: "rsa_project.settings"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL

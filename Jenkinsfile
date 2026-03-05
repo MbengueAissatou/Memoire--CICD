@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         DJANGO_SETTINGS_MODULE = 'rsa_project.settings'
-        DOCKER_USER = 'astou233'
         DOCKER_IMAGE = 'astou233/rsa-app'
+        DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -20,14 +20,14 @@ pipeline {
                 sh '''
                     python3 -m venv venv
                     venv/bin/pip install -r requirements.txt
-                    venv/bin/pip install pytest pytest-django flake8
+                    venv/bin/pip install pytest pytest-django flake8 safety
                 '''
             }
         }
 
         stage('Linting') {
             steps {
-                sh 'venv/bin/flake8 rsa_app/ --max-line-length=120 --exit-zero'
+                sh 'venv/bin/flake8 rsa_app/ --max-line-length=120'
             }
         }
 
@@ -37,6 +37,21 @@ pipeline {
             }
         }
 
+        // 🔐 SÉCURITÉ 1 : Détection de secrets
+        stage('Scan Secrets') {
+            steps {
+                sh 'trufflehog filesystem . --only-verified || true'
+            }
+        }
+
+        // 🔐 SÉCURITÉ 2 : Dépendances vulnérables
+        stage('Scan Dependencies') {
+            steps {
+                sh 'venv/bin/safety scan -r requirements.txt'
+            }
+        }
+
+        // 🔐 SÉCURITÉ 3 : Qualité et vulnérabilités du code
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -59,20 +74,21 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                    docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                 '''
             }
         }
 
+        // 🔐 SÉCURITÉ 4 : Scan image Docker
         stage('Scan Trivy') {
             steps {
                 sh '''
                     trivy image \
-                        --exit-code 0 \
-                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        --severity CRITICAL \
                         --format table \
-                        ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                        ${DOCKER_IMAGE}:${DOCKER_TAG}
                 '''
             }
         }
@@ -85,8 +101,9 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                        echo $DOCKER_PASS | docker login \
+                            -u $DOCKER_USER --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker push ${DOCKER_IMAGE}:latest
                     '''
                 }
@@ -106,10 +123,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline CI/CD DevSecOps terminé avec succès !'
+            echo '✅ Pipeline DevSecOps terminé avec succès !'
         }
         failure {
-            echo '❌ Pipeline échoué — vérifiez les logs.'
+            echo '❌ Pipeline échoué - vérifiez les logs de sécurité.'
         }
         always {
             echo '🔄 Pipeline terminé.'
