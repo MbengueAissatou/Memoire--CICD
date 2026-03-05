@@ -7,10 +7,6 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
-    options {
-        timestamps()
-    }
-
     stages {
 
         stage('Checkout') {
@@ -23,18 +19,8 @@ pipeline {
             steps {
                 sh '''
                     python3 -m venv venv
-                    venv/bin/pip install --upgrade pip
                     venv/bin/pip install -r requirements.txt
-                    venv/bin/pip install pytest pytest-django flake8
-
-                    # Suppression version Safety 3.x si présente
-                    venv/bin/pip uninstall -y safety || true
-
-                    # Installation version compatible CI
-                    venv/bin/pip install safety==2.3.5
-
-                    # Vérification version
-                    venv/bin/safety --version
+                    venv/bin/pip install pytest pytest-django flake8 pip-audit
                 '''
             }
         }
@@ -51,21 +37,21 @@ pipeline {
             }
         }
 
-        // 🔐 Scan Secrets
+        // 🔐 SÉCURITÉ 1 : Détection de secrets
         stage('Scan Secrets') {
             steps {
                 sh 'trufflehog filesystem . --only-verified --no-update'
             }
         }
 
-        // 🔐 Scan Dépendances (Safety 2.x non interactif)
+        // 🔐 SÉCURITÉ 2 : Dépendances vulnérables
         stage('Scan Dependencies') {
             steps {
-                sh 'venv/bin/safety check -r requirements.txt --full-report'
+                sh 'venv/bin/pip-audit -r requirements.txt'
             }
         }
 
-        // 🔐 Analyse statique SonarQube
+        // 🔐 SÉCURITÉ 3 : Qualité et vulnérabilités du code
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -87,22 +73,23 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh """
+                sh '''
                     docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                     docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
-                """
+                '''
             }
         }
 
-        // 🔐 Scan image Docker
-        stage('Scan Docker Image') {
+        // 🔐 SÉCURITÉ 4 : Scan image Docker
+        stage('Scan Trivy') {
             steps {
-                sh """
+                sh '''
                     trivy image \
                         --exit-code 1 \
-                        --severity HIGH,CRITICAL \
+                        --severity CRITICAL \
+                        --format table \
                         ${DOCKER_IMAGE}:${DOCKER_TAG}
-                """
+                '''
             }
         }
 
@@ -113,24 +100,24 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    sh '''
+                        echo $DOCKER_PASS | docker login \
+                            -u $DOCKER_USER --password-stdin
                         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker push ${DOCKER_IMAGE}:latest
-                    """
+                    '''
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
+                sh '''
                     kubectl apply -f k8s/deployment.yaml
                     kubectl apply -f k8s/service.yaml
                     kubectl apply -f k8s/networkpolicy.yaml
-                    kubectl set image deployment/rsa-app rsa-app=${DOCKER_IMAGE}:${DOCKER_TAG}
                     kubectl rollout status deployment/rsa-app --timeout=60s
-                """
+                '''
             }
         }
     }
@@ -140,7 +127,7 @@ pipeline {
             echo '✅ Pipeline DevSecOps terminé avec succès !'
         }
         failure {
-            echo '❌ Pipeline échoué - vérifiez les logs.'
+            echo '❌ Pipeline échoué - vérifiez les logs de sécurité.'
         }
         always {
             echo '🔄 Pipeline terminé.'
