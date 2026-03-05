@@ -40,7 +40,7 @@ pipeline {
         // 🔐 SÉCURITÉ 1 : Détection de secrets
         stage('Scan Secrets') {
             steps {
-                sh 'trufflehog filesystem . --only-verified || true'
+                sh 'trufflehog filesystem . --only-verified'
             }
         }
 
@@ -115,6 +115,7 @@ pipeline {
                 sh '''
                     kubectl apply -f k8s/deployment.yaml
                     kubectl apply -f k8s/service.yaml
+                    kubectl apply -f k8s/networkpolicy.yaml
                     kubectl rollout status deployment/rsa-app --timeout=60s
                 '''
             }
