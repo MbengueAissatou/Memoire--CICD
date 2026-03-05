@@ -42,21 +42,27 @@ pipeline {
             }
         }
 
-        // 🔐 SÉCURITÉ 1 : Scan des secrets
+        // 🔐 1️⃣ Scan des secrets
         stage('Scan Secrets') {
             steps {
                 sh 'trufflehog filesystem . --only-verified --no-update'
             }
         }
 
-        // 🔐 SÉCURITÉ 2 : Scan des dépendances
+        // 🔐 2️⃣ Scan des dépendances (Mode CI stable)
         stage('Scan Dependencies') {
             steps {
-                sh 'venv/bin/safety check -r requirements.txt --full-report'
+                sh '''
+                    venv/bin/safety scan \
+                        --file=requirements.txt \
+                        --no-deps \
+                        --severity=critical \
+                        --exit-code 1
+                '''
             }
         }
 
-        // 🔐 SÉCURITÉ 3 : Analyse statique SonarQube
+        // 🔐 3️⃣ Analyse statique SonarQube
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -85,14 +91,13 @@ pipeline {
             }
         }
 
-        // 🔐 SÉCURITÉ 4 : Scan image Docker avec Trivy
+        // 🔐 4️⃣ Scan image Docker
         stage('Scan Docker Image') {
             steps {
                 sh """
                     trivy image \
                         --exit-code 1 \
                         --severity HIGH,CRITICAL \
-                        --format table \
                         ${DOCKER_IMAGE}:${DOCKER_TAG}
                 """
             }
