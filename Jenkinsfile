@@ -7,6 +7,10 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
+    options {
+        timestamps()
+    }
+
     stages {
 
         stage('Checkout') {
@@ -19,6 +23,7 @@ pipeline {
             steps {
                 sh '''
                     python3 -m venv venv
+                    venv/bin/pip install --upgrade pip
                     venv/bin/pip install -r requirements.txt
                     venv/bin/pip install pytest pytest-django flake8 safety
                 '''
@@ -37,22 +42,21 @@ pipeline {
             }
         }
 
-        // 🔐 SÉCURITÉ 1 : Détection de secrets
-        
-stage('Scan Secrets') {
-    steps {
-        sh 'trufflehog filesystem . --only-verified --no-update'
-    }
-}
-
-        // 🔐 SÉCURITÉ 2 : Dépendances vulnérables
-        stage('Scan Dependencies') {
+        // 🔐 SÉCURITÉ 1 : Scan des secrets
+        stage('Scan Secrets') {
             steps {
-                sh 'venv/bin/safety scan -r requirements.txt'
+                sh 'trufflehog filesystem . --only-verified --no-update'
             }
         }
 
-        // 🔐 SÉCURITÉ 3 : Qualité et vulnérabilités du code
+        // 🔐 SÉCURITÉ 2 : Scan des dépendances
+        stage('Scan Dependencies') {
+            steps {
+                sh 'venv/bin/safety check -r requirements.txt --full-report'
+            }
+        }
+
+        // 🔐 SÉCURITÉ 3 : Analyse statique SonarQube
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -74,23 +78,23 @@ stage('Scan Secrets') {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
+                sh """
                     docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                     docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
-                '''
+                """
             }
         }
 
-        // 🔐 SÉCURITÉ 4 : Scan image Docker
-        stage('Scan Trivy') {
+        // 🔐 SÉCURITÉ 4 : Scan image Docker avec Trivy
+        stage('Scan Docker Image') {
             steps {
-                sh '''
+                sh """
                     trivy image \
                         --exit-code 1 \
-                        --severity CRITICAL \
+                        --severity HIGH,CRITICAL \
                         --format table \
                         ${DOCKER_IMAGE}:${DOCKER_TAG}
-                '''
+                """
             }
         }
 
@@ -101,24 +105,24 @@ stage('Scan Secrets') {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh '''
-                        echo $DOCKER_PASS | docker login \
-                            -u $DOCKER_USER --password-stdin
+                    sh """
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker push ${DOCKER_IMAGE}:latest
-                    '''
+                    """
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
+                sh """
                     kubectl apply -f k8s/deployment.yaml
                     kubectl apply -f k8s/service.yaml
                     kubectl apply -f k8s/networkpolicy.yaml
+                    kubectl set image deployment/rsa-app rsa-app=${DOCKER_IMAGE}:${DOCKER_TAG}
                     kubectl rollout status deployment/rsa-app --timeout=60s
-                '''
+                """
             }
         }
     }
