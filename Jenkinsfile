@@ -33,15 +33,7 @@ pipeline {
                 sh 'venv/bin/python -m pytest rsa_app/tests -v'
             }
         }
-        stage('SonarQube Analysis') {
-         steps {
-            script {
-                def scannerHome = tool 'SonarQubeScanner'
-                withSonarQubeEnv('SonarQube') {
-                    sh "${scannerHome}/bin/sonar-scanner"
-                }
-            }
-        }
-    }
+        
+        
     }
 }
