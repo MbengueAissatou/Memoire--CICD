@@ -6,5 +6,3 @@ from rsa_app.models import RSAKey
 def test_rsa_key_creation():
     key = RSAKey(name="Test Key", public_key="pub", private_key="priv")
     assert key.name == "Test Key"
-
-
