@@ -11,4 +11,5 @@ def test_rsa_key_save_in_db():
         private_key="priv"
     )
     assert RSAKey.objects.count() == 1
-    
+
+

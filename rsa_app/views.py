@@ -56,3 +56,4 @@ def decrypt_api(request):
 def private_key_api(request):
     keys = load_keys()
     return JsonResponse({'d': str(keys['d']), 'n': str(keys['n'])})
+
