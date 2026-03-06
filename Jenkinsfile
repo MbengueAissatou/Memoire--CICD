@@ -112,7 +112,7 @@ pipeline {
                     kubectl apply -f k8s/deployment.yaml
                     kubectl apply -f k8s/service.yaml
                     kubectl apply -f k8s/networkpolicy.yaml
-                    kubectl rollout status deployment/rsa-app --timeout=60s
+                    kubectl rollout status deployment/rsa-app --timeout=300s
                 '''
             }
         }
