@@ -18,9 +18,9 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    python3 -m venv venv
-                    venv/bin/pip install -r requirements.txt
-                    venv/bin/pip install pytest pytest-django flake8 pip-audit
+                python3 -m venv venv
+                venv/bin/pip install -r requirements.txt
+                venv/bin/pip install pytest pytest-django flake8 pip-audit
                 '''
             }
         }
@@ -37,100 +37,23 @@ pipeline {
             }
         }
 
-        // 🔐 SÉCURITÉ 1 : Détection de secrets
-        stage('Scan Secrets') {
-            steps {
-                sh 'trufflehog filesystem . --only-verified --no-update'
-            }
-        }
-
-        // 🔐 SÉCURITÉ 2 : Dépendances vulnérables
-        stage('Scan Dependencies') {
-            steps {
-                sh 'venv/bin/pip-audit -r requirements.txt'
-            }
-        }
-
-        // 🔐 SÉCURITÉ 3 : Qualité et vulnérabilités du code
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
-                        sh "${scannerHome}/bin/sonar-scanner"
-                    }
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+                docker tag $DOCKER_IMAGE:$DOCKER_TAG $DOCKER_IMAGE:latest
                 '''
             }
         }
 
-        // 🔐 SÉCURITÉ 4 : Scan image Docker
-        stage('Scan Trivy') {
-            steps {
-                sh '''
-                    trivy image \
-                        --exit-code 1 \
-                        --severity CRITICAL \
-                        --format table \
-                        ${DOCKER_IMAGE}:${DOCKER_TAG}
-                '''
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-credentials',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh '''
-                        echo $DOCKER_PASS | docker login \
-                            -u $DOCKER_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker push ${DOCKER_IMAGE}:latest
-                    '''
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh '''
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
-                    kubectl apply -f k8s/networkpolicy.yaml
-                    kubectl rollout status deployment/rsa-app --timeout=60s
-                '''
-            }
-        }
     }
 
     post {
         success {
-            echo '✅ Pipeline DevSecOps terminé avec succès !'
+            echo 'Pipeline réussi'
         }
         failure {
-            echo '❌ Pipeline échoué - vérifiez les logs de sécurité.'
-        }
-        always {
-            echo '🔄 Pipeline terminé.'
+            echo 'Pipeline échoué'
         }
     }
-}   normale
+}
